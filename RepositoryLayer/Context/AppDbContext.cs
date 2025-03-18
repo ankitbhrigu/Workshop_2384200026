@@ -1,5 +1,4 @@
-﻿using AddressBook.RepositoryLayer.Entity;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RepositoryLayer.Entity;
 using System;
 using System.Collections.Generic;

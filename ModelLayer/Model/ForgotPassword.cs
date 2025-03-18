@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 
 namespace ModelLayer.Model
 {
-    internal class ForgotPassword
+    public class ForgotPassword
     {
+        public string? Email { get; set; }
+
     }
 }

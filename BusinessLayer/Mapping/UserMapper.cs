@@ -1,4 +1,7 @@
-﻿using System;
+﻿using AutoMapper;
+using ModelLayer.Model;
+using RepositoryLayer.Entity;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +9,14 @@ using System.Threading.Tasks;
 
 namespace BusinessLayer.Mapping
 {
-    internal class UserMapper
+    public class UserMapper : Profile
     {
+        public UserMapper()
+        {
+            CreateMap<User, UserModel>();
+            CreateMap<User, UserRegister>().ReverseMap();
+            CreateMap<User, UserModel>().ReverseMap();
+
+        }
     }
 }

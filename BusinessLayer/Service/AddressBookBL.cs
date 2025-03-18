@@ -1,58 +1,147 @@
-﻿using AddressBook.BusinessLayer.Interface;
-using RepositoryLayer.Entity;
-using AddressBook.RepositoryLayer.Interface;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using AutoMapper;
+﻿using AutoMapper;
+using BusinessLayer.Interface;
 using ModelLayer.Model;
+using RepositoryLayer.Entity;
+using RepositoryLayer.Interface;
+using System;
+using System.Collections.Generic;
+using System.Text.Json;
+using NLog;
+using Middleware.RabbitMQ;
+using AddressBook.RepositoryLayer.Interface;
+using Microsoft.Extensions.Logging;
 
-namespace AddressBook.BusinessLayer.Service
+namespace BusinessLayer.Service
 {
     public class AddressBookBL : IAddressBookBL
     {
         private readonly IAddressBookRL _addressBookRL;
+        private readonly ICacheService _cacheService;
         private readonly IMapper _mapper;
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private const string CacheKey = "AllContacts";
+        private readonly RabbitMqService _rabbitMqPublisher;
 
-        public AddressBookBL(IAddressBookRL addressBookRL, IMapper mapper)
+        public AddressBookBL(IAddressBookRL addressBookRL, ICacheService cacheService, IMapper mapper, RabbitMqService rabbitMqPublisher)
         {
-            _addressBookRL = addressBookRL;
-            _mapper = mapper;
+            _addressBookRL = addressBookRL ?? throw new ArgumentNullException(nameof(addressBookRL));
+            _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _rabbitMqPublisher = rabbitMqPublisher;
+
         }
 
         public IEnumerable<ResponseAddressBook> GetAllContacts()
         {
-            var contacts = _addressBookRL.GetAllContacts();
+            try
+            {
+                // Attempt to retrieve from cache
+                var cacheData = _cacheService.GetCache(CacheKey);
+                if (!string.IsNullOrEmpty(cacheData))
+                {
+                    // Console.WriteLine("Cache Hit! Returning from Cache.");
+                    return JsonSerializer.Deserialize<IEnumerable<ResponseAddressBook>>(cacheData);
+                }
 
-            return _mapper.Map<IEnumerable<ResponseAddressBook>>(contacts);
+                // Fetch from database
+                var contacts = _addressBookRL.GetAllContacts();
+                if (contacts == null) return new List<ResponseAddressBook>();
+
+                var mappedContacts = _mapper.Map<IEnumerable<ResponseAddressBook>>(contacts);
+
+                // Store in cache
+                var serializedData = JsonSerializer.Serialize(mappedContacts);
+                _cacheService.SetCache(CacheKey, serializedData, 10);
+
+                return mappedContacts;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Error in GetAllContacts");
+                return new List<ResponseAddressBook>();
+            }
         }
 
         public ResponseAddressBook GetContactById(int id)
         {
-            var contact = _addressBookRL.GetContactById(id);
-            return contact == null ? null : _mapper.Map<ResponseAddressBook>(contact);
+            try
+            {
+                var contact = _addressBookRL.GetContactById(id);
+                return contact != null ? _mapper.Map<ResponseAddressBook>(contact) : null;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, $"Error retrieving contact with ID: {id}");
+                return null;
+            }
         }
 
         public ResponseAddressBook AddContact(RequestAddressBook contact)
         {
-            //var entity = _mapper.Map<AddressBookEntry>(contact);
-            // Map RequestAddressBook to AddressBookEntry
-            var entity = _mapper.Map<AddressBookEntry>(contact);
-            var newContact = _addressBookRL.AddContact(entity);
-            return _mapper.Map<ResponseAddressBook>(newContact);
+            if (contact == null) throw new ArgumentNullException(nameof(contact), "Contact data cannot be null.");
+
+            try
+            {
+                var entity = _mapper.Map<AddressBookEntry>(contact);
+                var newContact = _addressBookRL.AddContact(entity);
+
+                _cacheService.RemoveCache(CacheKey); // Invalidate cache
+
+                // Publish event to RabbitMQ
+                string message = $"New Contact Added: {contact.Name} - {contact.Email}";
+                _rabbitMqPublisher.PublishMessage(message);
+
+
+                return _mapper.Map<ResponseAddressBook>(newContact);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Error adding new contact");
+                return null;
+            }
         }
 
         public ResponseAddressBook UpdateContact(int id, RequestAddressBook contact)
         {
-            var entity = _mapper.Map<AddressBookEntry>(contact);
-            var updatedContact = _addressBookRL.UpdateContact(id, entity);
+            if (contact == null) throw new ArgumentNullException(nameof(contact), "Contact data cannot be null.");
 
-            return updatedContact == null ? null : _mapper.Map<ResponseAddressBook>(updatedContact);
+            try
+            {
+                var entity = _mapper.Map<AddressBookEntry>(contact);
+                var updatedContact = _addressBookRL.UpdateContact(id, entity);
+
+                if (updatedContact == null)
+                {
+                    return null; // Contact not found
+                }
+
+                _cacheService.RemoveCache(CacheKey); // Invalidate cache
+
+                return _mapper.Map<ResponseAddressBook>(updatedContact);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, $"Error updating contact with ID: {id}");
+                return null;
+            }
         }
 
         public bool DeleteContact(int id)
         {
-            return _addressBookRL.DeleteContact(id);
+            try
+            {
+                bool isDeleted = _addressBookRL.DeleteContact(id);
+                if (isDeleted)
+                {
+                    _cacheService.RemoveCache(CacheKey);
+                }
+                return isDeleted;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, $"Error deleting contact with ID: {id}");
+                return false;
+            }
         }
-
     }
 }

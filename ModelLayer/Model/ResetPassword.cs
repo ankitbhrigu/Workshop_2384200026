@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 
 namespace ModelLayer.Model
 {
-    internal class ResetPassword
+    public class ResetPassword
     {
+        public string? Token { get; set; }
+        public string? NewPassword { get; set; }
     }
 }

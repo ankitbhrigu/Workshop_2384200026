@@ -1,15 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using AddressBook.RepositoryLayer.Interface;
+using Microsoft.EntityFrameworkCore;
 using ModelLayer.Model;
 using RepositoryLayer.Context;
 using RepositoryLayer.Entity;
-using AddressBook.RepositoryLayer.Interface;
-using System;
+using RepositoryLayer.Interface;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace AddressBook.RepositoryLayer.Service
+namespace RepositoryLayer.Service
 {
     public class AddressBookRL : IAddressBookRL
     {
@@ -20,51 +18,24 @@ namespace AddressBook.RepositoryLayer.Service
             _dbContext = dbContext;
         }
 
-        public IEnumerable<ResponseAddressBook> GetAllContacts()
+        public IEnumerable<AddressBookEntry> GetAllContacts()
         {
-            return _dbContext.AddressBookEntries
-                .Select(entry => new ResponseAddressBook
-                {
-                    Id = entry.Id,
-                    Name = entry.Name,
-                    Email = entry.Email,
-                    PhoneNumber = entry.PhoneNumber,
-                    Address = entry.Address
-                }).ToList();
+            return _dbContext.AddressBookEntries.ToList();
         }
 
-        public ResponseAddressBook GetContactById(int id)
+        public AddressBookEntry GetContactById(int id)
         {
-            var entry = _dbContext.AddressBookEntries.Find(id);
-            if (entry == null) return null;
-
-            return new ResponseAddressBook
-            {
-                Id = entry.Id,
-                Name = entry.Name,
-                Email = entry.Email,
-                PhoneNumber = entry.PhoneNumber,
-                Address = entry.Address
-            };
+            return _dbContext.AddressBookEntries.Find(id);
         }
 
-        public ResponseAddressBook AddContact(AddressBookEntry contact)
+        public AddressBookEntry AddContact(AddressBookEntry contact)
         {
             _dbContext.AddressBookEntries.Add(contact);
             _dbContext.SaveChanges();
-
-            return new ResponseAddressBook
-            {
-                Id = contact.Id,
-                Name = contact.Name,
-                PhoneNumber = contact.PhoneNumber,
-                Email = contact.Email,
-                Address = contact.Address
-            };
-
+            return contact;
         }
 
-        public ResponseAddressBook UpdateContact(int id, AddressBookEntry contact)
+        public AddressBookEntry UpdateContact(int id, AddressBookEntry contact)
         {
             var existingContact = _dbContext.AddressBookEntries.FirstOrDefault(c => c.Id == id);
 
@@ -81,15 +52,7 @@ namespace AddressBook.RepositoryLayer.Service
 
             _dbContext.AddressBookEntries.Update(existingContact);
             _dbContext.SaveChanges();
-
-            return new ResponseAddressBook
-            {
-                Id = existingContact.Id,
-                Name = existingContact.Name,
-                PhoneNumber = existingContact.PhoneNumber,
-                Email = existingContact.Email,
-                Address = existingContact.Address
-            };
+            return existingContact;
         }
 
         public bool DeleteContact(int id)
@@ -102,5 +65,6 @@ namespace AddressBook.RepositoryLayer.Service
             return true;
         }
 
+        
     }
 }

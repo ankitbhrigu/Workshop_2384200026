@@ -1,9 +1,12 @@
 ﻿using ModelLayer.Model;
 using RepositoryLayer.Entity;
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
-namespace AddressBook.BusinessLayer.Interface
+namespace BusinessLayer.Interface
 {
     public interface IAddressBookBL
     {
@@ -12,6 +15,5 @@ namespace AddressBook.BusinessLayer.Interface
         ResponseAddressBook AddContact(RequestAddressBook contact);
         ResponseAddressBook UpdateContact(int id, RequestAddressBook contact);
         bool DeleteContact(int id);
-
     }
 }
