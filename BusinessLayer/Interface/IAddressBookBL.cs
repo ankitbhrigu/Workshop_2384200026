@@ -1,4 +1,5 @@
-﻿using AddressBook.RepositoryLayer.Entity;
+﻿using ModelLayer.Model;
+using RepositoryLayer.Entity;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -6,10 +7,11 @@ namespace AddressBook.BusinessLayer.Interface
 {
     public interface IAddressBookBL
     {
-        Task<IEnumerable<AddressBookEntry>> GetAllContacts();
-        Task<AddressBookEntry> GetContactById(int id);
-        Task<AddressBookEntry> AddContact(AddressBookEntry newContact);
-        Task<bool> UpdateContact(int id, AddressBookEntry updatedContact);
-        Task<bool> DeleteContact(int id);
+        IEnumerable<ResponseAddressBook> GetAllContacts();
+        ResponseAddressBook GetContactById(int id);
+        ResponseAddressBook AddContact(RequestAddressBook contact);
+        ResponseAddressBook UpdateContact(int id, RequestAddressBook contact);
+        bool DeleteContact(int id);
+
     }
 }

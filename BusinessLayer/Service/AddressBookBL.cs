@@ -1,43 +1,58 @@
 ﻿using AddressBook.BusinessLayer.Interface;
-using AddressBook.RepositoryLayer.Entity;
+using RepositoryLayer.Entity;
 using AddressBook.RepositoryLayer.Interface;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using AutoMapper;
+using ModelLayer.Model;
 
 namespace AddressBook.BusinessLayer.Service
 {
     public class AddressBookBL : IAddressBookBL
     {
         private readonly IAddressBookRL _addressBookRL;
+        private readonly IMapper _mapper;
 
-        public AddressBookBL(IAddressBookRL addressBookRL)
+        public AddressBookBL(IAddressBookRL addressBookRL, IMapper mapper)
         {
             _addressBookRL = addressBookRL;
+            _mapper = mapper;
         }
 
-        public async Task<IEnumerable<AddressBookEntry>> GetAllContacts()
+        public IEnumerable<ResponseAddressBook> GetAllContacts()
         {
-            return await _addressBookRL.GetAllContacts();
+            var contacts = _addressBookRL.GetAllContacts();
+
+            return _mapper.Map<IEnumerable<ResponseAddressBook>>(contacts);
         }
 
-        public async Task<AddressBookEntry> GetContactById(int id)
+        public ResponseAddressBook GetContactById(int id)
         {
-            return await _addressBookRL.GetContactById(id);
+            var contact = _addressBookRL.GetContactById(id);
+            return contact == null ? null : _mapper.Map<ResponseAddressBook>(contact);
         }
 
-        public async Task<AddressBookEntry> AddContact(AddressBookEntry newContact)
+        public ResponseAddressBook AddContact(RequestAddressBook contact)
         {
-            return await _addressBookRL.AddContact(newContact);
+            //var entity = _mapper.Map<AddressBookEntry>(contact);
+            // Map RequestAddressBook to AddressBookEntry
+            var entity = _mapper.Map<AddressBookEntry>(contact);
+            var newContact = _addressBookRL.AddContact(entity);
+            return _mapper.Map<ResponseAddressBook>(newContact);
         }
 
-        public async Task<bool> UpdateContact(int id, AddressBookEntry updatedContact)
+        public ResponseAddressBook UpdateContact(int id, RequestAddressBook contact)
         {
-            return await _addressBookRL.UpdateContact(id, updatedContact);
+            var entity = _mapper.Map<AddressBookEntry>(contact);
+            var updatedContact = _addressBookRL.UpdateContact(id, entity);
+
+            return updatedContact == null ? null : _mapper.Map<ResponseAddressBook>(updatedContact);
         }
 
-        public async Task<bool> DeleteContact(int id)
+        public bool DeleteContact(int id)
         {
-            return await _addressBookRL.DeleteContact(id);
+            return _addressBookRL.DeleteContact(id);
         }
+
     }
 }

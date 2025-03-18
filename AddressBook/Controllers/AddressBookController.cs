@@ -1,71 +1,138 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using AddressBook.BusinessLayer.Interface;
-using AddressBook.RepositoryLayer.Entity;
+using AutoMapper;
+using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
+using ModelLayer.Model;
 using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Linq;
 
 namespace AddressBook.Controllers
 {
-    [Authorize] // Ensures only authenticated users can access these endpoints
     [ApiController]
-    [Route("api/addressbook")]
+    [Route("api/[controller]")]
     public class AddressBookController : ControllerBase
     {
         private readonly IAddressBookBL _addressBookBL;
+        private readonly IValidator<RequestAddressBook> _validator;
 
-        public AddressBookController(IAddressBookBL addressBookBL)
+        public AddressBookController(IAddressBookBL addressBookBL, IValidator<RequestAddressBook> validator)
         {
             _addressBookBL = addressBookBL;
+            _validator = validator;
         }
 
-        // GET: api/addressbook - Fetch all contacts
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<AddressBookEntry>>> GetAllContacts()
+        public ActionResult<ResponseBody<IEnumerable<ResponseAddressBook>>> GetAllContacts()
         {
-            var contacts = await _addressBookBL.GetAllContacts();
-            return Ok(contacts);
+            var contacts = _addressBookBL.GetAllContacts();
+
+            return Ok(new ResponseBody<IEnumerable<ResponseAddressBook>>
+            {
+                Success = true,
+                Message = "Contacts retrieved successfully.",
+                Data = contacts
+            });
         }
 
-        // GET: api/addressbook/{id} - Get contact by ID
         [HttpGet("{id}")]
-        public async Task<ActionResult<AddressBookEntry>> GetContactById(int id)
+        public ActionResult<ResponseBody<ResponseAddressBook>> GetContactById(int id)
         {
-            var contact = await _addressBookBL.GetContactById(id);
+            var contact = _addressBookBL.GetContactById(id);
             if (contact == null)
-                return NotFound(new { message = "Contact not found" });
+            {
+                return NotFound(new ResponseBody<ResponseAddressBook>
+                {
+                    Success = false,
+                    Message = "Contact not found.",
+                    Data = null
+                });
+            }
 
-            return Ok(contact);
+            return Ok(new ResponseBody<ResponseAddressBook>
+            {
+                Success = true,
+                Message = "Contact retrieved successfully.",
+                Data = contact
+            });
         }
 
-        // POST: api/addressbook - Add a new contact
         [HttpPost]
-        public async Task<ActionResult<AddressBookEntry>> AddContact(AddressBookEntry newContact)
+        public ActionResult<ResponseBody<ResponseAddressBook>> AddContact([FromBody] RequestAddressBook dto)
         {
-            var contact = await _addressBookBL.AddContact(newContact);
-            return CreatedAtAction(nameof(GetContactById), new { id = contact.Id }, contact);
+            var validationResult = _validator.Validate(dto);
+            if (!validationResult.IsValid)
+            {
+                return BadRequest(new ResponseBody<object>
+                {
+                    Success = false,
+                    Message = "Validation failed.",
+                    Data = validationResult.Errors.Select(e => e.ErrorMessage)
+                });
+            }
+
+            var newContact = _addressBookBL.AddContact(dto);
+
+            return CreatedAtAction(nameof(GetContactById), new { id = newContact.Id }, new ResponseBody<ResponseAddressBook>
+            {
+                Success = true,
+                Message = "Contact added successfully.",
+                Data = newContact
+            });
         }
 
-        // PUT: api/addressbook/{id} - Update contact
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateContact(int id, AddressBookEntry updatedContact)
+        public ActionResult<ResponseBody<ResponseAddressBook>> UpdateContact(int id, [FromBody] RequestAddressBook dto)
         {
-            var result = await _addressBookBL.UpdateContact(id, updatedContact);
-            if (!result)
-                return NotFound(new { message = "Contact not found" });
+            var validationResult = _validator.Validate(dto);
+            if (!validationResult.IsValid)
+            {
+                return BadRequest(new ResponseBody<object>
+                {
+                    Success = false,
+                    Message = "Validation failed.",
+                    Data = validationResult.Errors.Select(e => e.ErrorMessage)
+                });
+            }
 
-            return NoContent();
+            var updatedContact = _addressBookBL.UpdateContact(id, dto);
+            if (updatedContact == null)
+            {
+                return NotFound(new ResponseBody<ResponseAddressBook>
+                {
+                    Success = false,
+                    Message = "Contact not found.",
+                    Data = null
+                });
+            }
+
+            return Ok(new ResponseBody<ResponseAddressBook>
+            {
+                Success = true,
+                Message = "Contact updated successfully.",
+                Data = updatedContact
+            });
         }
 
-        // DELETE: api/addressbook/{id} - Delete contact
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteContact(int id)
+        public ActionResult<ResponseBody<string>> DeleteContact(int id)
         {
-            var result = await _addressBookBL.DeleteContact(id);
-            if (!result)
-                return NotFound(new { message = "Contact not found" });
+            var isDeleted = _addressBookBL.DeleteContact(id);
+            if (!isDeleted)
+            {
+                return NotFound(new ResponseBody<string>
+                {
+                    Success = false,
+                    Message = "Contact not found.",
+                    Data = null
+                });
+            }
 
-            return NoContent();
+            return Ok(new ResponseBody<string>
+            {
+                Success = true,
+                Message = "Contact deleted successfully.",
+                Data = "Deleted"
+            });
         }
     }
 }
